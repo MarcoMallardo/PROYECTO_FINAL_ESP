@@ -2,55 +2,73 @@
 #include <IRremoteESP8266.h>
 #include <IRsend.h>
 #include <ir_Samsung.h> 
-#include <ir_Coolix.h> // Agregamos la librería para BGH
+#include <ir_Coolix.h> 
 
-const uint16_t LED_IR = 26; // El pin de tu emisor IR
+// Definición de tus pines
+const uint16_t SENSOR_IR = 25;
+const uint16_t LED_IR = 26;
 
-// Instanciamos ambos objetos apuntando al mismo pin físico
+// Instancias de los objetos
 IRSamsungAc samsungAC(LED_IR);
 IRCoolixAC bghAC(LED_IR);
 
 void setup() {
   Serial.begin(115200);
   
-  // Iniciamos el hardware de ambos emisores
+  // Iniciamos emisores
   samsungAC.begin();
   bghAC.begin();
   
-  // --- CONFIGURACIÓN SAMSUNG ---
-  samsungAC.on();                        
-  samsungAC.setMode(kSamsungAcHeat);     
-  samsungAC.setTemp(27);                 
-  samsungAC.setFan(kSamsungAcFanHigh);   
-  
-  // --- CONFIGURACIÓN BGH (COOLIX) ---
-  bghAC.on();
-  bghAC.setMode(kCoolixHeat);     // Modo Calor específico de Coolix
-  bghAC.setTemp(27);              // Temperatura a 27°C
-  bghAC.setFan(kCoolixFanAuto);   // Ventilador en Automático
-  
-  Serial.println("Sistema Universal ESP32 Iniciado.");
-  Serial.println("Escribe 'A' para encender el SAMSUNG (Calor, 27°C)");
-  Serial.println("Escribe 'B' para encender el BGH (Calor, 27°C)");
+  // Configuración predeterminada para el encendido (Heat 27°C)
+  samsungAC.setMode(kSamsungAcHeat);
+  samsungAC.setTemp(27);
+  samsungAC.setFan(kSamsungAcFanHigh);
+
+  bghAC.setMode(kCoolixHeat);
+  bghAC.setTemp(27);
+  bghAC.setFan(kCoolixFanAuto);
+
+  Serial.println("=========================================");
+  Serial.println("Control Maestro AC Iniciado (Pin 26)");
+  Serial.println("A -> Samsung ON  | a -> Samsung OFF");
+  Serial.println("B -> Coolix ON   | b -> Coolix OFF");
+  Serial.println("=========================================");
 }
 
 void loop() {
-  // Comprobamos si hay algún dato esperando a ser leído
   if (Serial.available() > 0) {
-    
     char entrada = Serial.read();
-    
-    // Disparo para Samsung
-    if (entrada == 'A' || entrada == 'a') {
-      samsungAC.send();
-      Serial.println("-> [A] Señal SAMSUNG enviada con éxito.");
+
+    switch (entrada) {
+      // --- SAMSUNG (A / a) ---
+      case 'A':
+        samsungAC.on();
+        samsungAC.send();
+        Serial.println("[A] Samsung: ENCENDIDO (Heat 27°C)");
+        break;
+      
+      case 'a':
+        samsungAC.off();
+        samsungAC.send();
+        Serial.println("[a] Samsung: APAGADO");
+        break;
+
+      // --- COOLIX / BGH / SURREY (B / b) ---
+      case 'B':
+        bghAC.on();
+        bghAC.send();
+        Serial.println("[B] Coolix: ENCENDIDO (Heat 27°C)");
+        break;
+
+      case 'b':
+        bghAC.off();
+        bghAC.send();
+        Serial.println("[b] Coolix: APAGADO");
+        break;
+
+      default:
+        // Ignorar otros caracteres (como saltos de línea)
+        break;
     }
-    // Disparo para BGH
-    else if (entrada == 'B' || entrada == 'b') {
-      bghAC.send();
-      Serial.println("-> [B] Señal BGH (Coolix) enviada con éxito.");
-    }
-    
-    delay(10); 
   }
 }

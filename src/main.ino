@@ -1,71 +1,74 @@
 #include <Arduino.h>
 #include <IRremoteESP8266.h>
-#include <IRrecv.h>
-#include <IRutils.h>
+#include <IRsend.h>
+#include <ir_Samsung.h> 
+#include <ir_Coolix.h> 
 
-const uint16_t kRecvPin = 25; // Tu pin actual
+// Definición de tus pines
+const uint16_t SENSOR_IR = 25;
+const uint16_t LED_IR = 26;
 
-// --- CONFIGURACIÓN AVANZADA PARA AIRES ACONDICIONADOS ---
-// Usamos nombres propios para evitar conflictos con la librería
-const uint16_t TAMANO_BUFFER = 1024; 
-const uint8_t TIEMPO_ESPERA = 50;  // 50ms para que no corte la señal de Samsung
-const bool GUARDAR_BUFFER = true;  // Fundamental para juntar señales largas
-
-// Inicializamos el receptor
-IRrecv irrecv(kRecvPin, TAMANO_BUFFER, TIEMPO_ESPERA, GUARDAR_BUFFER);
-
-decode_results results;
+// Instancias de los objetos
+IRSamsungAc samsungAC(LED_IR);
+IRCoolixAC bghAC(LED_IR);
 
 void setup() {
   Serial.begin(115200);
-  irrecv.enableIRIn();
-  Serial.println("==========================================");
-  Serial.println("Lector de Estados AC Iniciado.");
-  Serial.println("Apunta el control y presiona un botón...");
-  Serial.println("==========================================");
+  
+  // Iniciamos emisores
+  samsungAC.begin();
+  bghAC.begin();
+  
+  // Configuración predeterminada para el encendido (Heat 27°C)
+  samsungAC.setMode(kSamsungAcHeat);
+  samsungAC.setTemp(27);
+  samsungAC.setFan(kSamsungAcFanHigh);
+
+  bghAC.setMode(kCoolixHeat);
+  bghAC.setTemp(27);
+  bghAC.setFan(kCoolixFanAuto);
+
+  Serial.println("=========================================");
+  Serial.println("Control Maestro AC Iniciado (Pin 26)");
+  Serial.println("A -> Samsung ON  | a -> Samsung OFF");
+  Serial.println("B -> Coolix ON   | b -> Coolix OFF");
+  Serial.println("=========================================");
 }
 
 void loop() {
-  if (irrecv.decode(&results)) {
-    
-    // Verificamos si es un protocolo complejo de Aire Acondicionado
-    if (hasACState(results.decode_type)) {
-      Serial.println("\n--- Nueva Señal de AC Capturada ---");
+  if (Serial.available() > 0) {
+    char entrada = Serial.read();
+
+    switch (entrada) {
+      // --- SAMSUNG (A / a) ---
+      case 'A':
+        samsungAC.on();
+        samsungAC.send();
+        Serial.println("[A] Samsung: ENCENDIDO (Heat 27°C)");
+        break;
       
-      // 1. Mostramos la marca / protocolo
-      Serial.print("Protocolo detectado: ");
-      Serial.println(typeToString(results.decode_type));
-      
-      // 2. Calculamos el tamaño en bytes (bits / 8)
-      uint16_t bytesEstado = results.bits / 8;
-      
-      Serial.print("Tamaño en Bytes: ");
-      Serial.println(bytesEstado);
-      
-      // 3. Imprimimos el estado en formato de arreglo listo para copiar y pegar
-      Serial.print("Código para tu proyecto:\n  uint8_t estado_capturado[");
-      Serial.print(bytesEstado);
-      Serial.print("] = {");
-      
-      for (uint16_t i = 0; i < bytesEstado; i++) {
-        Serial.printf("0x%02X", results.state[i]);
-        // Ponemos la coma solo si no es el último elemento
-        if (i < bytesEstado - 1) {
-          Serial.print(", ");
-        }
-      }
-      Serial.println("};");
-      
-    } else {
-      // Si apuntas con un control de TV o un protocolo simple
-      Serial.println("\n--- Señal Simple Capturada ---");
-      Serial.print("Protocolo: ");
-      Serial.println(typeToString(results.decode_type));
-      Serial.print("Valor Hexadecimal: 0x");
-      Serial.println(uint64ToString(results.value, 16));
+      case 'a':
+        samsungAC.off();
+        samsungAC.send();
+        Serial.println("[a] Samsung: APAGADO");
+        break;
+
+      // --- COOLIX / BGH / SURREY (B / b) ---
+      case 'B':
+        bghAC.on();
+        bghAC.send();
+        Serial.println("[B] Coolix: ENCENDIDO (Heat 27°C)");
+        break;
+
+      case 'b':
+        bghAC.off();
+        bghAC.send();
+        Serial.println("[b] Coolix: APAGADO");
+        break;
+
+      default:
+        // Ignorar otros caracteres (como saltos de línea)
+        break;
     }
-    
-    // Preparamos el receptor para la próxima lectura
-    irrecv.resume();
   }
 }
