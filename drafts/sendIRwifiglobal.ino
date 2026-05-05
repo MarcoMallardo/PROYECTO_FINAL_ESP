@@ -9,8 +9,8 @@
 #include <ir_Coolix.h> 
 #include <ir_LG.h>
 
-const char* ssid = "Fibertel WiFi063 2.4GHz";
-const char* password = "00425154222";
+const char* ssid = "MECA-IoT";//"Fibertel WiFi063 2.4GHz";
+const char* password = "IoT$2026";//"00425154222";
 
 #define API_KEY "AIzaSyCI682u5MblQpp4Cg3XBAPMnwRf-Uz-S9A"
 #define DATABASE_URL "proyectofinal5lcg6-default-rtdb.firebaseio.com" 
@@ -33,8 +33,13 @@ void setup() {
   Serial.begin(115200);
   
   samsungAC.begin(); bghAC.begin(); lgAC.begin();
+  
+  // Estados base
   samsungAC.setMode(kSamsungAcHeat); samsungAC.setTemp(27); samsungAC.setFan(kSamsungAcFanHigh);
-  bghAC.setMode(kCoolixHeat);        bghAC.setTemp(27);     bghAC.setFan(kCoolixFanAuto);
+  
+  // --- MODIFICADO: COOLIX EN FRIO 23C ---
+  bghAC.setMode(kCoolixCool);        bghAC.setTemp(23);     bghAC.setFan(kCoolixFanAuto);
+  
   lgAC.setMode(kLgAcHeat);           lgAC.setTemp(27);      lgAC.setFan(kLgAcFanHigh);
 
   WiFi.begin(ssid, password);
@@ -69,7 +74,7 @@ void loop() {
         return; 
       }
 
-      // 2. TU LÓGICA: Si el candado está cerrado, forzamos agresivamente el "ESPERANDO" y cortamos
+      // 2. Si el candado está cerrado, forzamos agresivamente el "ESPERANDO" y cortamos
       if (esperandoReinicio == true) {
         Firebase.RTDB.setStringAsync(&fbdoEscribir, "/comando", "ESPERANDO");
         return; 
@@ -81,8 +86,11 @@ void loop() {
       // --- DISPARO DE SEÑALES ---
       if (orden == "SAMSUNG_ON") { samsungAC.on(); samsungAC.send(); } 
       else if (orden == "SAMSUNG_OFF") { samsungAC.off(); samsungAC.send(); }
+      
+      // Al recibir COOLIX_ON, dispara usando la configuración de 23C Frío del setup
       else if (orden == "COOLIX_ON") { bghAC.on(); bghAC.send(); } 
       else if (orden == "COOLIX_OFF") { bghAC.off(); bghAC.send(); }
+      
       else if (orden == "LG_ON") { lgAC.on(); lgAC.send(); } 
       else if (orden == "LG_OFF") { lgAC.off(); lgAC.send(); }
       
